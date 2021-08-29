@@ -29,8 +29,15 @@
 #define DAC_ADJ_SCALE    0.033203125  // difference in DAC between notes = 34
                                       // pitch bend range is -2048 to 2047
                                       // DAC_ADJ_SCALE = DAC_diff_between_notes * MAX_PITCH_BEND / MAX_PITCH_BEND_RANGE
+#define DAC_OUT_1V25     2047         // DAC value for 1.25V initial EXP SCALE
+#define DAC_OUT_1V5      2457         // DAC value for 1.5V  for tuning
+#define DAC_OUT_2V0      3275         // DAC value for 2.0V for tuning
+#define TUNE_CLK_FREQ    250000       // 250 kHz tune timer clock
+#define TUNE_FREQ_TOL    10           // tune to within +/- 10 Hz
 
-#define HEADER "\033[2J\033[2H"                                                                      \
+#define NUM_FREQ_CNT     25           // number of time periods to count for self tuning measurements
+
+#define HEADER "\033[2J\033[2H"                                                                   \
                "  __                              __\r\n"                                         \
                " |  | ___   ____    ____   ____  |  | ___    ___     ___   ____\r\n"              \
                " |  |/   \\ /     \\ /     \\|     \\|  |/   \\ /     \\ /     \\|     \\\r\n"    \
@@ -68,6 +75,17 @@
     #define LED1_EN            \
         LED1_OFF;              \
         LED1_DIR |= LED1_PIN
+
+    // HARD SYNC
+    #define HARD_SYNC_OUT   P1OUT
+    #define HARD_SYNC_DIR   P1DIR
+    #define HARD_SYNC_PIN   BIT4
+    #define HARD_SYNC_OFF   HARD_SYNC_OUT &= ~HARD_SYNC_PIN
+    #define HARD_SYNC_ON    HARD_SYNC_OUT |= HARD_SYNC_PIN
+
+    #define HARD_SYNC_EN       \
+        HARD_SYNC_OFF;         \
+        HARD_SYNC_DIR |= HARD_SYNC_PIN;
 
 #endif
 
@@ -173,12 +191,15 @@ struct note {
 // Function Definitions ********************************************************
 //******************************************************************************
 
-void initClockTo16MHz(void);             // Initialize CPU clock to 16 MHz
-void initUARTs(void);                    // Configure USCI_A0 & A1 for UART mode
-void initGPIO(void);                     // Set pin directions
-void initDACs(void);                     // Initialize DACs
-void initMIDINotes(struct note *notes);  // Return empty MIDI note stack
-
+void initClockTo16MHz(void);                            // Initialize CPU clock to 16 MHz
+void initUARTs(void);                                   // Configure USCI_A0 & A1 for UART mode
+void initGPIO(void);                                    // Set pin directions
+void initDACs(void);                                    // Initialize DACs
+void initMIDINotes(struct note *notes);                 // Return empty MIDI note stack
+void initFreqCtr(void);                                 // Initialize the frequency counter and pin
+unsigned int stopFreqTmr(void);                         // Stop the frequency counter timer and return the counter value
+void stopFreqCtr(void);                                 // Stop the frequency counter
+unsigned int getTargetFreq(unsigned int, unsigned int); // Calculate the target frequency when tuning
 
 
 #endif /* MCU_VCO_H_ */

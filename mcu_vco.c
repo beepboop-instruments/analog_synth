@@ -73,6 +73,9 @@ void initGPIO()
     // Configure GPIO
     P1SEL1 &= ~(BIT6);                        // USCI_A0 UART operation (RXD only)
     P1SEL0 |= BIT6;
+    P1DIR  |= BIT4;                           // P1.4 is HARD SYNC output
+
+    P2SEL0 |= BIT2;                           // P2.2 selected as TB1CLK
 
     P4SEL1 &= ~(BIT2 | BIT3);                 // USCI_A1 UART operation
     P4SEL0 |= BIT2 | BIT3;
@@ -96,6 +99,7 @@ void initDACs()
     #endif
 
     DAC0_CFG;
+    DAC1_CFG;
 }
 
 
@@ -111,4 +115,46 @@ void initMIDINotes(struct note *notes)
         notes[i].on       =  0;
         sprintf(notes[i].name, "");
     }
+}
+
+
+// Initialize and start the frequency counter timer
+void initFreqCtr()
+{
+    // 1. Write 1 to TBCLR to clear TBxR, clock divider state, and the counter direction
+    TB0CTL = TBCLR;
+    TB1CTL = TBCLR;
+
+    // 2. If necessary, write initial counter value to TBxR
+    // not necessary for TB0, because we want it at 0 as set by TBCLR
+    TB1R = 0xFFFF - NUM_FREQ_CNT;             // Offset until TBR overflow
+
+    // 3. Initialize TBxCCRn
+    // not using capture compare
+
+    // 4. Apply desired configuration to TBxIV, TBIDEX, and TBxCCTLn
+    // not using TBxIV
+    // not using capture compare
+    TB0EX0 = TBIDEX_7;  // divide by 8
+
+    // 5. Apply desired configuration to TBxCTL including the MC bits
+    TB0CTL =  MC_2 | ID_3 | TBSSEL_2;         // continuous mode, divide by 8, use SMCLK
+    TB1CTL = TBSSEL_0 | MC_2 | TBIE;          // TBR1CLK, continuous mode, enable interrupt
+}
+
+// Stop the frequency counter timer and return the counter value
+unsigned int stopFreqTmr()
+{
+    TB0CTL = MC_0;       // stop mode
+    return TB0R;
+}
+// Stop the frequency counter
+void stopFreqCtr()
+{
+    TB1CTL = 0;                               // enter stop mode and clear interrupt
+}
+
+unsigned int getTargetFreq(unsigned int f1, unsigned int f2)
+{
+    return 50 ;
 }
