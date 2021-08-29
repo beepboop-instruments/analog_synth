@@ -128,7 +128,7 @@ void initFreqCtr()
 
     // 2. If necessary, write initial counter value to TBxR
     // not necessary because we want both at 0 as set by TBCLR
-    TB1R = 0xFFFE;
+    TB1R = 0xFFFF;
 
     // 3. Initialize TBxCCRn
     // not using capture compare for TB0
@@ -144,19 +144,3 @@ void initFreqCtr()
     TB1CTL = TBSSEL_0 | MC_2 | TBIE;          // TBR1CLK, continuous mode
 }
 
-// Stop the frequency counter timer and return the counter value
-unsigned int stopFreqTmr()
-{
-    TB0CTL = MC_0;       // stop mode
-    return TB0R;
-}
-// Stop the frequency counter
-void stopFreqCtr()
-{
-    TB1CTL = 0;                               // enter stop mode and clear interrupt
-}
-
-unsigned int getTargetFreq(unsigned int f1, unsigned int f2)
-{
-    return 50 ;
-}

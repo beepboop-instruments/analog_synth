@@ -30,15 +30,12 @@
                                       // pitch bend range is -2048 to 2047
                                       // DAC_ADJ_SCALE = DAC_diff_between_notes * MAX_PITCH_BEND / MAX_PITCH_BEND_RANGE
 #define DAC_OUT_1V25     2047         // DAC value for 1.25V initial EXP SCALE
-#define DAC_OUT_1V5      2457         // DAC value for 1.5V  for tuning
-#define DAC_OUT_2V0      3275         // DAC value for 2.0V for tuning
 #define TUNE_CLK_FREQ    250000       // 250 kHz tune timer clock
-#define TUNE_FREQ_TOL    10           // tune to within +/- 10 Hz
-#define INIT_EXP_OFFSET  938          // initial tune value for EXP FREQ offset
+#define CNT_AT_440       568          // desired count value for 440 Hz at A4
+#define TUNE_FREQ_TOL    1            // tune to within +/- 1 Hz
+#define INIT_EXP_OFFSET  940          // initial tune value for EXP FREQ offset
 #define CNT_AT_0V        30578        // desired count at 0V for a midi note 0 frequency of 8.1758 Hz
 #define CNT_AT_0V_TOL    20           // measure to within desired count +/-20  clocks
-
-#define NUM_FREQ_CNT     25           // number of time periods to count for self tuning measurements
 
 #define HEADER "\033[2J\033[2H"                                                                   \
                "  __                              __\r\n"                                         \
@@ -200,9 +197,6 @@ void initGPIO(void);                                    // Set pin directions
 void initDACs(void);                                    // Initialize DACs
 void initMIDINotes(struct note *notes);                 // Return empty MIDI note stack
 void initFreqCtr(void);                                 // Initialize the frequency counter and pin
-unsigned int stopFreqTmr(void);                         // Stop the frequency counter timer and return the counter value
-void stopFreqCtr(void);                                 // Stop the frequency counter
-unsigned int getTargetFreq(unsigned int, unsigned int); // Calculate the target frequency when tuning
 
 
 #endif /* MCU_VCO_H_ */
