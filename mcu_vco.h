@@ -34,6 +34,9 @@
 #define DAC_OUT_2V0      3275         // DAC value for 2.0V for tuning
 #define TUNE_CLK_FREQ    250000       // 250 kHz tune timer clock
 #define TUNE_FREQ_TOL    10           // tune to within +/- 10 Hz
+#define INIT_EXP_OFFSET  938          // initial tune value for EXP FREQ offset
+#define CNT_AT_0V        30578        // desired count at 0V for a midi note 0 frequency of 8.1758 Hz
+#define CNT_AT_0V_TOL    20           // measure to within desired count +/-20  clocks
 
 #define NUM_FREQ_CNT     25           // number of time periods to count for self tuning measurements
 

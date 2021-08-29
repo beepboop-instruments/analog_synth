@@ -56,14 +56,20 @@ unsigned char midi_note_vel = 0;
 #endif
 
 // tuning flags
+unsigned char f_exp_offset_tune = 0;
 unsigned char f_tune = 0;
 
 // tuning variablews
-unsigned int fa = 0;                    // first frequency measured at 0.25V
-unsigned int fb = 0;                    // second frequency measured at 1.25V
-unsigned int ft = 0;                    // target freq
-unsigned int dac_exp = DAC_OUT_1V25;    // dac value for EXP SCALE adjust
-unsigned int t_meas = 0;                // time measurement in tuning process
+unsigned int fexpoff = 0;                   // exponential frequency offset measurement
+unsigned int dac_expoff = INIT_EXP_OFFSET;  // dac value for EXP FREQ offset
+unsigned int fa = 0;                        // first frequency measured at 0.25V
+unsigned int fb = 0;                        // second frequency measured at 1.25V
+unsigned int ft = 0;                        // target freq
+unsigned int dac_exp = DAC_OUT_1V25;        // dac value for EXP SCALE adjust
+unsigned int t_meas  = 0;                   // time measurement in tuning process
+unsigned int t_meas1 = 0;                   // time measurement in tuning process
+unsigned int t_meas2 = 0;                   // time measurement in tuning process
+unsigned char num_ignored = 0;              // number of pulses to ignore at the beginning of tuning
 
 //******************************************************************************
 // MAIN ************************************************************************
@@ -92,7 +98,7 @@ int main(void)
 	    sprintf(header_msg,HEADER);
 	    UCA1IE |= UCTXIE;
     #else
-	    f_tune = 1;
+	    f_exp_offset_tune = 1;
     #endif
 
 	SET_DAC0(0);            // no notes played
@@ -101,15 +107,64 @@ int main(void)
 	while(1)
 	{
 	    // tune mode
-	    if (f_tune)
+	    if (f_exp_offset_tune)
 	    {
-	        switch(f_tune)
+	        switch(f_exp_offset_tune)
 	        {
-	            case 1: // start tuning process
+	            case 1:  // set tune EXP FREQ offset
                     #if DEBUG == 1
                        sprintf(debug_msg, "Beginning tune process...\r\n");
                        UCA1IE |= UCTXIE;
                     #endif
+	                SET_DAC2(dac_expoff);
+                    f_exp_offset_tune = 2;
+                    initFreqCtr();
+	                break;
+	            case 2:  // wait to start measuring
+	                break;
+	            case 4:  // wait until measurement complete
+	                break;
+	            case 8:  // check measurement
+	                if (t_meas < CNT_AT_0V + CNT_AT_0V_TOL && t_meas > CNT_AT_0V - CNT_AT_0V_TOL)
+	                {
+	                    f_exp_offset_tune = 0;
+	                    HARD_SYNC_ON;
+	                    //f_tune = 1;
+	                    #if DEBUG == 1
+	                        sprintf(debug_msg, "   Done! EXP FREQ OFFSET = %d\r\n", dac_expoff);
+	                        UCA1IE |= UCTXIE;
+	                    #endif
+	                }
+	                else if (t_meas > CNT_AT_0V)
+	                {
+	                    #if DEBUG == 1
+	                        sprintf(debug_msg, "   t = %d, EXP FREQ up\r\n", t_meas);
+	                        UCA1IE |= UCTXIE;
+	                    #endif
+	                    SET_DAC2(dac_expoff++);
+	                    f_exp_offset_tune = 2;
+	                    initFreqCtr();
+	                }
+	                else
+	                {
+	                    #if DEBUG == 1
+	                        sprintf(debug_msg, "   t = %d, EXP SCALE down\r\n", t_meas);
+	                        UCA1IE |= UCTXIE;
+	                    #endif
+	                    SET_DAC2(dac_expoff--);
+                        f_exp_offset_tune = 2;
+                        initFreqCtr();
+	                }
+	                break;
+	            default:
+	                break;
+	        }
+	    }
+	    else if (f_tune)
+	    {
+	        switch(f_tune)
+	        {
+	            case 1: // start tuning process
 	                SET_DAC0(DAC_OUT_1V5);
 	                initFreqCtr();
 	                HARD_SYNC_ON;
@@ -214,6 +269,7 @@ int main(void)
 
                  // Set CV DAC value
                  SET_DAC0(dac_val & 0x0FFF);
+                 HARD_SYNC_OFF;
 
                  f_midi_note_on = 0;
                  ptr_note ++;
@@ -255,10 +311,11 @@ int main(void)
                      }
                  }
 
-                 // turn DAC output off if no note is currently played
+                 // turn output off if no note is currently played
                  if (midi_notes[0].on == 0)
                  {
                      SET_DAC0(0);
+                     HARD_SYNC_ON;
                  }
              }
 
@@ -280,7 +337,7 @@ int main(void)
                      // calculate DAC output: note + bend
                      unsigned int dac_val = (unsigned int)(   conv_midi_to_dac(midi_notes[ptr_note-1].value)
                                                             + DAC_ADJ_SCALE * midi_pitch_bend_val            );
-                     // Set CV DAC value
+                     // 0 Hz Out
                      SET_DAC0(dac_val & 0x0FFF);
                  }
              }
@@ -405,7 +462,7 @@ void __attribute__ ((interrupt(USCI_A1_VECTOR))) USCI_A1_ISR (void)
               UCA1IE &= ~UCTXIE;
               TXbytes = 0;
               f_print_start = 0;
-              f_tune = 1;
+              f_exp_offset_tune = 1;
           }
       }
       else
@@ -437,7 +494,44 @@ void __attribute__ ((interrupt(TIMER1_B0_VECTOR))) Timer1_B0_ISR (void)
 #error Compiler not supported!
 #endif
 {
-    t_meas = stopFreqTmr();
-    stopFreqCtr();
-    f_tune = f_tune * 2;               // advance tune flag
+    switch(__even_in_range(TB1IV, TB1IV_TBIFG))
+    {
+        case TB1IV_TBIFG:
+            if (num_ignored == 5)
+            {
+                if (f_exp_offset_tune == 2)
+                {
+                    TB0CTL |= MC_2;
+                    TB1R = 0xFFFF;
+                    f_exp_offset_tune = 4;   // set measuring flag
+                }
+                else if (f_exp_offset_tune == 4)
+                {
+                    TB0CTL = 0;             // stop measuring
+                    TB1CTL = 0;
+                    TB1CCTL1 = 0;
+                    t_meas = TB0R;
+                    f_exp_offset_tune = 8;  // clear measuring flag
+                    num_ignored = 0;
+                }
+                else if (f_tune)
+                {
+                    TB0CTL = 0;             // stop measuring
+                    t_meas = TB0R;          // get measurement
+                    f_tune = f_tune * 2;    // advance f_tune flag
+                    num_ignored = 0;
+                }
+            }
+            else
+            {
+                num_ignored ++;         // advance ignore count
+                TB1R = 0xFFFF;
+            }
+            break;
+
+        default:
+            break;
+
+    }
+
 }

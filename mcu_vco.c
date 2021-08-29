@@ -100,6 +100,7 @@ void initDACs()
 
     DAC0_CFG;
     DAC1_CFG;
+    DAC2_CFG;
 }
 
 
@@ -126,20 +127,21 @@ void initFreqCtr()
     TB1CTL = TBCLR;
 
     // 2. If necessary, write initial counter value to TBxR
-    // not necessary for TB0, because we want it at 0 as set by TBCLR
-    TB1R = 0xFFFF - NUM_FREQ_CNT;             // Offset until TBR overflow
+    // not necessary because we want both at 0 as set by TBCLR
+    TB1R = 0xFFFE;
 
     // 3. Initialize TBxCCRn
-    // not using capture compare
+    // not using capture compare for TB0
+    //TB1CCR1 = 1;        // count up to 1 clock
 
     // 4. Apply desired configuration to TBxIV, TBIDEX, and TBxCCTLn
     // not using TBxIV
-    // not using capture compare
+    //TB1CCTL1 = CCIE;    // enable interrupts
     TB0EX0 = TBIDEX_7;  // divide by 8
 
     // 5. Apply desired configuration to TBxCTL including the MC bits
-    TB0CTL =  MC_2 | ID_3 | TBSSEL_2;         // continuous mode, divide by 8, use SMCLK
-    TB1CTL = TBSSEL_0 | MC_2 | TBIE;          // TBR1CLK, continuous mode, enable interrupt
+    TB0CTL =  ID_3 | TBSSEL_2;         // divide by 8, use SMCLK
+    TB1CTL = TBSSEL_0 | MC_2 | TBIE;          // TBR1CLK, continuous mode
 }
 
 // Stop the frequency counter timer and return the counter value
